@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nextwave
+      POSTGRES_USER: nextwave
+      POSTGRES_PASSWORD: nextwave
+    ports:
+      - "5432:5432"
+    volumes:
+      - nextwave_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextwave -d nextwave"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: python:3.12-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      DATABASE_URL: postgresql+psycopg://nextwave:nextwave@db:5432/nextwave
+      APP_ENV: development
+      REDDIT_ENABLED: ${REDDIT_ENABLED:-false}
+      REDDIT_CLIENT_ID: ${REDDIT_CLIENT_ID:-}
+      REDDIT_CLIENT_SECRET: ${REDDIT_CLIENT_SECRET:-}
+      REDDIT_ACCESS_TOKEN: ${REDDIT_ACCESS_TOKEN:-}
+      REDDIT_REFRESH_TOKEN: ${REDDIT_REFRESH_TOKEN:-}
+      REDDIT_USER_AGENT: ${REDDIT_USER_AGENT:-windows:nextwave-local:v1.3 (by /u/YOUR_REDDIT_USERNAME)}
+      REDDIT_SEARCH_LIMIT: ${REDDIT_SEARCH_LIMIT:-25}
+      REDDIT_MAX_QUERIES: ${REDDIT_MAX_QUERIES:-8}
+      REDDIT_TIME_FILTER: ${REDDIT_TIME_FILTER:-week}
+      REDDIT_RAW_TTL_HOURS: ${REDDIT_RAW_TTL_HOURS:-24}
+    command: sh -c "pip install -r requirements.txt && python scripts/migrate.py && python scripts/seed.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  nextwave_pg:
